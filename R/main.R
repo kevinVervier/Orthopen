@@ -1,0 +1,206 @@
+################################################################
+### Main function that solves a general problem (primal LS): ###
+###               min LS + lambda*Orthopen                   ###
+################################################################
+
+# Projection function
+myproj<-function(w,v){
+  
+  # store a local copy of both matrices
+  w_tmp = w
+  v_tmp = v
+  
+  # filter cases where V_ij is negative --> project on 0
+  idx1 = v <= 0
+  v_tmp[idx1] = 0
+  w_tmp[idx1] = 0
+  
+  # compute once absolute value of W
+  abs_w = abs(w)
+  
+  # get positions where no projection is needed
+  idx2 = abs_w < v
+  
+  # get positions for which action is required
+  idx3 = !(idx1 | idx2)
+  # apply projection
+  tmp = 0.5*(v[idx3] + abs_w[idx3])
+  v_tmp[idx3] = tmp
+  w_tmp[idx3] = sign(w[idx3])*tmp
+  return(list("w"=w_tmp,"v"=v_tmp))
+}
+
+### Main solver for penalized problems
+## Inputs:
+# X: mxp examples matrices
+# Y: mxT corresponding answers for different tasks
+# lambda: regularization parameter (default:1)
+# step_size: step for gradient descent (default:0.1)
+# verbose: verbose option (default:0)
+# stop_no_improve: number of gradient descent steps w/o imprivment before stopping (default: 100)
+# max_iter: maximum number of iterations before stopping optimization (default: 1,000,000)
+
+##Inputs (optional):
+# K: pxp orthogonality constraints matrix
+# disjoint: for contraints on disjoint supports (default: TRUE)
+# logistic: if true, change loss function to logistic loss ( better suited for classification problems)
+# enet: if true, add a L1 penalization to the L2 penalization, using elastic net formula (single parameter lambda, assuming enet = 0.5*L2 + 0.5*L1)
+
+##Outputs:
+# W: optimal objective function solution
+# obj: objective function value at W
+# imax: number of steps before reaching optimum
+
+main <- function(X,Y,lambda=1, step_size=0.1, verbose = 0, stop_no_improve=100, max_iter=1e6, K=NULL,disjoint=TRUE,logistic = FALSE,enet= FALSE){
+  
+  #get problem dimensions
+  m = nrow(X)
+  p = ncol(X)
+  T = ncol(Y)
+  
+  ############
+  ### INIT ###
+  ############
+  #init K if not provided
+  if(is.null(K)) K = diag(1,T)
+  #init W 
+  if(!disjoint){
+    W_k = matrix(0,nrow=p,ncol=T)
+  }else{
+    # limit impact of W_0 on disjoint support problem
+    W_k = matrix(rnorm(p*T),ncol=T)
+    W_k = abs(W_k)
+  }
+  #store best reached point
+  W = W_k
+  #define V matrices if disjoint supports are needed
+  if(disjoint){
+    V_k = W_k
+    V <- V_k
+  }
+  
+  #derive L1-regularization parameters if enet 
+  if(enet) lambda1 = 0.5*diag(K)*lambda
+  
+  #objective function value and number non-improved steps, used in stop criterion
+  new <- Inf
+  no_improv = 0
+  
+  #steps counter, used in gradient step_size
+  i = 0
+  #################
+  ### MAIN LOOP ###
+  #################
+  
+  if(verbose >0) cat('Step \t ObjFun\t NonImproving\n',sep='')
+  
+  # descent until reaching non-improvment plateau OR max_iter (if max_iter is reached, you may want to change step_size parameter for instance)
+  while((no_improv < stop_no_improve) && (i<max_iter)){
+    
+    # get sparse support size (only for verbose purpose)
+    if(verbose >0) idx = which(W_k != 0,arr.ind = TRUE)
+    
+    #increment i
+    i <- i+1
+    #verbose on current state
+    if(verbose >0 & i%%1000 == 0 ){ 
+      cat(i,'\t',new,'\t',no_improv,'\n',sep='')
+      cat('Current sparse support:',length(W_k)-nrow(idx),'\n')
+    }
+    
+    # compute matrix products once
+    if(!logistic){
+      LS = X%*%W_k - Y
+    }else{
+      LS = log(1 + exp(-Y*X%*%W_k))
+    } 
+    scale = sqrt(i)
+    if(disjoint){
+      PEN = crossprod(V_k)#t(V_k)%*%V_k
+      if(enet) M = V_k
+    }else{
+      PEN = crossprod(W_k)#t(W_k)%*%W_k
+      if(enet) M = W_k
+    }
+    # get current objective function value
+    if(!logistic){ 
+      if(enet){
+        tmp = 0.5* (sum((LS)^2)/nrow(X) + 0.5*lambda * sum(abs(PEN) * K)) + 0.5*lambda*sum(abs(t(M))*diag(K))
+      }else{
+        tmp = 0.5* (sum((LS)^2)/nrow(X) + lambda * sum(abs(PEN) * K))
+      }
+    }else{
+      if(enet){
+        tmp = sum(LS)/nrow(X) + 0.5*lambda * sum(abs(PEN) * K) + 0.5*lambda*sum(abs(t(M))*diag(K))
+      }else{
+        tmp = sum(LS)/nrow(X) + 0.5*lambda * sum(abs(PEN) * K) 
+      }
+    }
+    
+    #subgradient scheme is not a strict descent scheme
+    if(tmp < new && abs(tmp-new) > 10^-5){
+      no_improv <- 0
+      new <- tmp
+      W <- W_k
+      V <- V_k
+    }else{
+      no_improv <- no_improv + 1
+    }
+    
+    # Get subgradient at current W_k (and V_k, if disjoint support)      
+    if(disjoint){
+      if(!logistic){
+        gradientW <- crossprod(X,LS)/nrow(X)
+      }else{
+        gradientW <- -crossprod(X,Y - 1/(1+exp(-X%*%W_k)))/nrow(X)
+      }
+      gradientV <- lambda * V_k%*%(sign(PEN)*K)
+      if(enet) gradientV = 0.5*gradientV + 0.5*lambda*sign(V_k)
+      
+      norm_gradient <- sqrt(sum((gradientW + gradientV)^2))
+    }else{
+      if(!logistic){
+        if(enet){
+          gradientW <- crossprod(X,LS)/nrow(X) + 0.5*lambda * W_k%*%(sign(PEN)*K) + 0.5*lambda*sign(W_k)
+        }else{
+          gradientW <- crossprod(X,LS)/nrow(X) + lambda * W_k%*%(sign(PEN)*K)
+        }
+        
+      }else{
+        if(enet){
+          gradientW <- -crossprod(X,Y - 1/(1+exp(-X%*%W_k)))/nrow(X) + lambda * W_k%*%(sign(PEN)*K) + 0.5*lambda*sign(W_k)
+        }else{
+          gradientW <- -crossprod(X,Y - 1/(1+exp(-X%*%W_k)))/nrow(X) + lambda * W_k%*%(sign(PEN)*K) 
+        }
+        
+      }
+      norm_gradient <- sqrt(sum((gradientW)^2))
+    }
+    
+    # apply subgradient 'descent' on current W_k and V_k
+    if (norm_gradient>0) {
+      scale_grad = scale*norm_gradient
+      # Subgradient update
+      W_k <- W_k - step_size*gradientW/scale_grad
+      if(disjoint) V_k <- V_k - step_size*gradientV/scale_grad
+      
+      #projection step
+      if(disjoint){
+        projection <- myproj(w = W_k, v = V_k)
+        W_k <- projection$w
+        V_k <- projection$v
+      }
+    } else {
+      # Stop: we have found a (perhaps local) minimum
+      no_improv <- stop_no_improve+1
+    }
+  }
+  #store i_max: step of w*
+  imax = i
+  ##############
+  ### OUTPUT ###
+  ##############
+  best_obj <- new
+  w_star <- W 
+  return(list(W=w_star,obj=new,imax=imax))
+}

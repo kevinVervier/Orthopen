@@ -1,0 +1,19 @@
+Package: orthopen
+Title: Learning Matrices with Orthogonal Columns or Disjoint Supports
+Version: 0.0.1
+Date: 2017-01-31
+Authors@R: person("Kevin", "Vervier",
+    email = "kevin-vervier@uiowa.edu", role = c("aut", "cre"))
+Description: This package implements methods presented in 'On Learning Matrices with Orthogonal Columns or Disjoint Supports' (Vervier et al., 2014). From correlated learning tasks, it can be useful to enforce orthogonality between their supports to get each task proper signal.
+Depends:
+    R (>= 3.2.0),
+    Iso
+License: GNU General Public License-3.0
+URL: https://github.com/kevinVervier/orthopen
+BugReports: https://github.com/kevinVervier/orthopen/issues
+Suggests:
+    knitr
+VignetteBuilder: knitr
+RoxygenNote: 5.0.0
+LinkingTo: 
+Imports: 
