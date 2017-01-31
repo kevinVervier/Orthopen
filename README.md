@@ -9,7 +9,7 @@ To install Orthopen from R, type:
 ```{r}
 install.packages('devtools')
 library(devtools)
-install_github("kevinVervier/Orthopen")
+install_github("kevinVervier/orthopen")
 ```
 
 Check the [vignette](vignettes/apg_vignette.Rmd) for examples.
