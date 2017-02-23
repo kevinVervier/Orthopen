@@ -68,10 +68,10 @@ Everything we need to run Orthopen is ready.
 ```{r}
 library(orthopen)
 set.seed(42)
-res <- main(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = TRUE, step_size=step_size)
+res <- orthopen(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = TRUE, step_size=step_size)
 
 set.seed(43)
-res <- main(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = TRUE, step_size=step_size)
+res <- orthopen(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = TRUE, step_size=step_size)
 
 ```
 
