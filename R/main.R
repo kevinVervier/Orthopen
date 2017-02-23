@@ -1,55 +1,39 @@
 ################################################################
 ### Main function that solves a general problem (primal LS): ###
-###               min LS + lambda*Orthopen                   ###
+###                                ###
 ################################################################
 
-# Projection function
-myproj<-function(w,v){
-  
-  # store a local copy of both matrices
-  w_tmp = w
-  v_tmp = v
-  
-  # filter cases where V_ij is negative --> project on 0
-  idx1 = v <= 0
-  v_tmp[idx1] = 0
-  w_tmp[idx1] = 0
-  
-  # compute once absolute value of W
-  abs_w = abs(w)
-  
-  # get positions where no projection is needed
-  idx2 = abs_w < v
-  
-  # get positions for which action is required
-  idx3 = !(idx1 | idx2)
-  # apply projection
-  tmp = 0.5*(v[idx3] + abs_w[idx3])
-  v_tmp[idx3] = tmp
-  w_tmp[idx3] = sign(w[idx3])*tmp
-  return(list("w"=w_tmp,"v"=v_tmp))
-}
+#' Solver for a general problem of the form: min (loss + Orthopen)  
+#' 
+#' \code{main}
+#' @param X \eqn{MxP} observations matrix (features are in columns)
+#' @param Y \eqn{MxT} observed output matrix for T different tasks
+#' @param lambda a regularization parameter (default \code{1})
+#' @param step_size step for gradient descent (default \code{0.1})
+#' @param verbose option (default \code{0})
+#' @param stop_no_improve number of gradient descent steps without improvment before stopping (default: \code{100})
+#' @param max_iter  maximum number of iterations before stopping optimization (default: \code{1000000})
+#' @param K \eqn{PxP} orthogonality constraints matrix (default: diagonal matrix --> no orthogonality constraint)
+#' @param disjoint if \code{TRUE} add contraints for disjoint supports (default: TRUE)
+#' @param logistic if \code{TRUE} change loss function to logistic loss (for classification problems)
+#' @param enet if \code{TRUE}, add a \code{L1} penalization to the \code{L2} penalization, using elastic net formula (single parameter lambda, assuming \eqn{enet = 0.5*L2 + 0.5*L1})
+#' @return a list containing three elements\itemize{\item \code{W}: optimal \eqn{PxT} matrix for objective function minimum \item obj: objective function value at W \item imax: number of steps before reaching optimum
+#' }
+#' @export
+#' @examples #solve orthogonal columns problem 
+#' # min_W 1/2 norm( X%*%W - Y )^2 + lambda ||W||_orthopen
+#' NVAR=10
+#' NTRAIN=100
+#' T=3
+#' K = matrix(1,nrow=T,ncol=T)
+#' # Generate random data and random model
+#' X <- matrix(rnorm(NTRAIN*NVAR),nrow=NTRAIN,ncol=NVAR)
+#' # Random orthogonal matrix
+#' W <- qr.Q(qr(matrix(rnorm(NVAR*T),nrow=NVAR,ncol=T)))
+#' Y <- X %*% W + matrix(rnorm(NTRAIN*T),nrow=NTRAIN)
+#' set.seed(42)
+#' res <- main(X,Y,lambda = 0.1,K = K,disjoint = FALSE)
 
-### Main solver for penalized problems
-## Inputs:
-# X: mxp examples matrices
-# Y: mxT corresponding answers for different tasks
-# lambda: regularization parameter (default:1)
-# step_size: step for gradient descent (default:0.1)
-# verbose: verbose option (default:0)
-# stop_no_improve: number of gradient descent steps w/o imprivment before stopping (default: 100)
-# max_iter: maximum number of iterations before stopping optimization (default: 1,000,000)
-
-##Inputs (optional):
-# K: pxp orthogonality constraints matrix
-# disjoint: for contraints on disjoint supports (default: TRUE)
-# logistic: if true, change loss function to logistic loss ( better suited for classification problems)
-# enet: if true, add a L1 penalization to the L2 penalization, using elastic net formula (single parameter lambda, assuming enet = 0.5*L2 + 0.5*L1)
-
-##Outputs:
-# W: optimal objective function solution
-# obj: objective function value at W
-# imax: number of steps before reaching optimum
 
 main <- function(X,Y,lambda=1, step_size=0.1, verbose = 0, stop_no_improve=100, max_iter=1e6, K=NULL,disjoint=TRUE,logistic = FALSE,enet= FALSE){
   
@@ -142,7 +126,7 @@ main <- function(X,Y,lambda=1, step_size=0.1, verbose = 0, stop_no_improve=100, 
       no_improv <- 0
       new <- tmp
       W <- W_k
-      V <- V_k
+      if(disjoint) V <- V_k
     }else{
       no_improv <- no_improv + 1
     }
@@ -186,7 +170,7 @@ main <- function(X,Y,lambda=1, step_size=0.1, verbose = 0, stop_no_improve=100, 
       
       #projection step
       if(disjoint){
-        projection <- myproj(w = W_k, v = V_k)
+        projection <- proj_disjoint(w = W_k, v = V_k)
         W_k <- projection$w
         V_k <- projection$v
       }
