@@ -14,6 +14,6 @@ BugReports: https://github.com/kevinVervier/orthopen/issues
 Suggests:
     knitr
 VignetteBuilder: knitr
-RoxygenNote: 5.0.0
+RoxygenNote: 6.0.1
 LinkingTo: 
 Imports: 
