@@ -5,7 +5,7 @@
 
 #' Solver for a general problem of the form: min (loss + Orthopen)  
 #' 
-#' \code{main}
+#' \code{orthopen}
 #' @param X \eqn{MxP} observations matrix (features are in columns)
 #' @param Y \eqn{MxT} observed output matrix for T different tasks
 #' @param lambda a regularization parameter (default \code{1})
