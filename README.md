@@ -12,4 +12,4 @@ library(devtools)
 install_github("kevinVervier/orthopen")
 ```
 
-Check the [vignette](vignettes/apg_vignette.Rmd) for examples.
+Check the [vignette](vignettes/) for examples.
