@@ -31,7 +31,7 @@ W <- qr.Q(qr(matrix(rnorm(P*T),nrow=P,ncol=T)))
 t(W)%*%W
 ```
 
-Using the model $W$, we also simulate a data set made of $M=1000$ training examples $X$. Each example is represented by $P=100$ variables, and is assessed for $T=6$ tasks in $Y$.
+Using the model $W$, we also simulate a data set made of $M=50$ training examples $X$. Each example is represented by $P=10$ variables, and is assessed for $T=10$ tasks in $Y$.
 
 ```{r}
 # simulate observations
