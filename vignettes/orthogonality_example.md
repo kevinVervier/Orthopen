@@ -54,19 +54,169 @@ diag(K) = diagval
 # regularization parameter
 lambda=10^-3 #might require optimization
 # subgradient step size
-step_size=50 #might require optimization
+step_size = 0.1 #might require optimization
 ```
 
 Everything we need to run Orthopen is ready.
 
 ```{r}
 library(orthopen)
-set.seed(42)
-res <- orthopen(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = FALSE, step_size=step_size)
 
-set.seed(43)
 res <- orthopen(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = FALSE, step_size=step_size)
 
 ```
 
+### Convexity impact on model columns orthogonality
+
+This section gives code to reproduce results presented in '
+[On Learning Matrices with Orthogonal Columns or Disjoint Supports' (Vervier et al., 2014)] (http://link.springer.com/chapter/10.1007%2F978-3-662-44845-8_18) (Fig.2).
+In this experiment, we demonstrated that not convex models lead to models with higher orthogonality between columns.
+
+```{r}
+# Parameters
+T=10 # number of tasks
+NTRAIN=50 # number of training samples
+NVAR=10 # dimension
+NTEST=1000 # number of test samples
+step_size = 0.1 # step size for subgradient optimization
+DIAGVAL <- seq(1,2*T,by=2) # diagonal values tested
+LAMBDAS = 1.6^seq(-16,4) # lambda (regularization parameter) tested
+ndiag <- length(DIAGVAL)
+nlambda <- length(LAMBDAS)
+nonconvexrep = 1 # we simply run the subgradient optimization starting from the null matrix
+nrepeats = 100 # number of repeats of the experiment
+K = matrix(1,nrow=T,ncol=T) # penalty matrix (we will just change the diagonal)
+
+TEST = list() # initiate output variable
+
+for (noise in c(1,2.5,4)) {
+  # Main loop: repeat the experiment nrepeats times
+  res <- matrix(0,nrow=nlambda,ncol=ndiag) # filled at each experiment
+  ang <- matrix(0,nrow=nlambda,ncol=ndiag) # filled at each experiment
+  TEST = matrix(0,nrow=nrepeats,ncol= ndiag)
+  ANGLES = matrix(0,nrow=nrepeats,ncol= ndiag)
+  
+  run_exp <- function(irep) {
+    
+    cat("Repeat ",irep,"\n",sep="")
+    
+    ## Generate random data and random model
+    # X train
+    X.train <- matrix(rnorm(NTRAIN*NVAR),nrow=NTRAIN,ncol=NVAR)
+    # X test
+    X.test <- matrix(rnorm(NTEST*NVAR),nrow= NTEST,ncol=NVAR)
+    # Random orthogonal matrix
+    W <- qr.Q(qr(matrix(rnorm(NVAR*T),nrow=NVAR,ncol=T)))
+    # Y train
+    Y.train <- X.train %*% W + matrix(rnorm(NTRAIN*T),nrow=NTRAIN)*noise
+    # Y test (without noise)
+    Y.test <- X.test %*% W
+    
+    # Loop on the diagonal value of K
+    for(idiag in seq(length(DIAGVAL))){
+      cat('diag=',DIAGVAL[idiag])
+      diag(K) = DIAGVAL[idiag]
+      
+      # Loop on regularization parameter lambda
+      for(ilambda in seq(LAMBDAS)){
+        cat('.')
+        
+        # Train predictor
+        W_opt = orthopen(X = X.train,Y= Y.train,lambda = LAMBDAS[ilambda], verbose = 0, K = K, step_size = step_size,max_iter=1e5)
+        
+        # Performance (MSE) on the test set
+        res[ilambda,idiag] <- 0.5*sum((X.test%*%W_opt$W - Y.test)^2) /NTEST
+        
+        # Angles between columns of the predictor
+        v <- acos(cor(W_opt$W))*360/(2*pi) - 90
+        diag(v) <- 0
+        ang[ilambda,idiag] <- sum(abs(v))/(T*(T-1))
+        
+      } # end of ilambda loop
+      cat('\n')
+    } # end of idiag loop
+    
+    # Find the best lambda for each diag
+    bb <- apply(res,2,which.min)
+    return(list(sapply(seq(ndiag),function(i){res[bb[i],i]}), sapply(seq(ndiag),function(i){ang[bb[i],i]}))) #return 
+    
+  }
+  
+  TEST[[noise]] <- lapply(seq(nrepeats),run_exp)
+
+}
+
+### Plot results
+
+MSE <- lapply(TEST[[noise[1]]],function(u){u[[1]]})
+mres1 <- apply(as.data.frame(MSE),1,mean)
+sres1 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+
+MSE <- lapply(TEST[[noise[2]]],function(u){u[[1]]})
+mres2 <- apply(as.data.frame(MSE),1,mean)
+sres2 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+
+MSE <- lapply(TEST[[noise[3]]],function(u){u[[1]]})
+mres3 <- apply(as.data.frame(MSE),1,mean)
+sres3 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+
+old.par <- par(no.readonly = TRUE)
+par(oma=c(2,2,0,0))
+par(mar=c(3,3,1,0.5))
+par(mfrow=c(1,3))
+plot(DIAGVAL,mres1,main="",ylim=range(c(mres1+sres1,mres1-sres1)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
+errbar(DIAGVAL,mres1,mres1+sres1,mres1-sres1,add=T,pch=1,cap=0.01)
+grid()
+abline(v=ncol(K)-1,lty = 2,lwd=2)
+plot(DIAGVAL,mres2,main="",ylim=range(c(mres2+sres2,mres2-sres2)),type="l",lwd=4,ylab="",xlab='',pch=26,cex.axis=1.5)
+errbar(DIAGVAL,mres2,mres2+sres2,mres2-sres2,add=T,pch=1,cap=0.01)
+grid()
+abline(v=ncol(K)-1,lty = 2,lwd=2)
+plot(DIAGVAL,mres3,main="",ylim=range(c(mres3+sres3,mres3-sres3)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
+errbar(DIAGVAL,mres3,mres3+sres3,mres3-sres3,add=T,pch=1,cap=0.01)
+grid()
+abline(v=ncol(K)-1,lty = 2,lwd=2)
+
+mtext("Diagonal",side=1,outer=TRUE,cex=1.5)
+mtext("Test MSE",side=2,outer=TRUE,cex=1.5)
+par(old.par)
+
+
+
+
+MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
+mres1 <- apply(as.data.frame(MSE),1,mean)
+sres1 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
+mres2 <- apply(as.data.frame(MSE),1,mean)
+sres2 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
+mres3 <- apply(as.data.frame(MSE),1,mean)
+sres3 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+
+
+old.par <- par(no.readonly = TRUE)
+par(oma=c(2,2,0,0))
+par(mar=c(3,3,1,0.5))
+par(mfrow=c(1,3))
+plot(DIAGVAL,mres1,main="",ylim=range(c(mres1+sres1,mres1-sres1)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
+errbar(DIAGVAL,mres1,mres1+sres1,mres1-sres1,add=T,pch=1,cap=0.01)
+grid()
+abline(v=ncol(K)-1,lty = 2,lwd=2)
+
+plot(DIAGVAL,mres2,main="",ylim=range(c(mres2+sres2,mres2-sres2)),type="l",lwd=4,ylab="",xlab='',pch=26,cex.axis=1.5)
+errbar(DIAGVAL,mres2,mres2+sres2,mres2-sres2,add=T,pch=1,cap=0.01)
+grid()
+abline(v=ncol(K)-1,lty = 2,lwd=2)
+plot(DIAGVAL,mres3,main="",ylim=range(c(mres3+sres3,mres3-sres3)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
+errbar(DIAGVAL,mres3,mres3+sres3,mres3-sres3,add=T,pch=1,cap=0.01)
+grid()
+abline(v=ncol(K)-1,lty = 2,lwd=2)
+
+mtext("Diagonal",side=1,outer=TRUE,cex=1.5)
+mtext("mean(|angle-90|)",side=2,outer=TRUE,cex=1.5)
+par(old.par)
+
+  
+```
 

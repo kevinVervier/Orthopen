@@ -12,4 +12,4 @@ library(devtools)
 install_github("kevinVervier/orthopen")
 ```
 
-Check the [vignette](vignettes/) for examples.
+Check the [vignettes](vignettes/) for examples.
