@@ -5,7 +5,7 @@ date: "January 31, 2017"
 output: html_document
 ---
 
-### Introduction
+# Introduction
 
 This vignette contains multiple examples for solving optimization problems with orthogonal columns constraints.
 
@@ -66,14 +66,14 @@ res <- orthopen(X = X,Y= Y,lambda = lambda, verbose = 1,K=K,disjoint = FALSE, st
 
 ```
 
-### Convexity impact on model columns orthogonality
+# Convexity impact on model columns orthogonality
 
 This section gives code to reproduce results presented in '
 [On Learning Matrices with Orthogonal Columns or Disjoint Supports' (Vervier et al., 2014)] (http://link.springer.com/chapter/10.1007%2F978-3-662-44845-8_18) (Fig.2).
 In this experiment, we demonstrated that not convex models lead to models with higher orthogonality between columns.
 
+### Parameters
 ```{r}
-# Parameters
 T=10 # number of tasks
 NTRAIN=50 # number of training samples
 NVAR=10 # dimension
@@ -86,9 +86,12 @@ nlambda <- length(LAMBDAS)
 nonconvexrep = 1 # we simply run the subgradient optimization starting from the null matrix
 nrepeats = 100 # number of repeats of the experiment
 K = matrix(1,nrow=T,ncol=T) # penalty matrix (we will just change the diagonal)
-
 TEST = list() # initiate output variable
+```
 
+### Run experiments for 3 different noise levels in simulated data.
+
+```{r}
 for (noise in c(1,2.5,4)) {
   # Main loop: repeat the experiment nrepeats times
   res <- matrix(0,nrow=nlambda,ncol=ndiag) # filled at each experiment
@@ -141,37 +144,42 @@ for (noise in c(1,2.5,4)) {
     return(list(sapply(seq(ndiag),function(i){res[bb[i],i]}), sapply(seq(ndiag),function(i){ang[bb[i],i]}))) #return 
     
   }
-  
+  # for each noise level, run 'nrepeats' experiments
   TEST[[noise]] <- lapply(seq(nrepeats),run_exp)
-
 }
 
-### Plot results
+```
 
-MSE <- lapply(TEST[[noise[1]]],function(u){u[[1]]})
-mres1 <- apply(as.data.frame(MSE),1,mean)
-sres1 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
+### Plot results - Mean Square Error as a function of convexity
 
-MSE <- lapply(TEST[[noise[2]]],function(u){u[[1]]})
-mres2 <- apply(as.data.frame(MSE),1,mean)
-sres2 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
-
-MSE <- lapply(TEST[[noise[3]]],function(u){u[[1]]})
-mres3 <- apply(as.data.frame(MSE),1,mean)
-sres3 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
-
-old.par <- par(no.readonly = TRUE)
+```{r}
+#graphical parameters
 par(oma=c(2,2,0,0))
 par(mar=c(3,3,1,0.5))
 par(mfrow=c(1,3))
+
+# get results for noise level 1: mean value + standard error
+MSE <- lapply(TEST[[noise[1]]],function(u){u[[1]]}) # get results for noise level 1: mean value + standard error
+mres1 <- apply(as.data.frame(MSE),1,mean)
+sres1 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
 plot(DIAGVAL,mres1,main="",ylim=range(c(mres1+sres1,mres1-sres1)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
 errbar(DIAGVAL,mres1,mres1+sres1,mres1-sres1,add=T,pch=1,cap=0.01)
 grid()
 abline(v=ncol(K)-1,lty = 2,lwd=2)
+
+# get results for noise level 2: mean value + standard error
+MSE <- lapply(TEST[[noise[2]]],function(u){u[[1]]})
+mres2 <- apply(as.data.frame(MSE),1,mean)
+sres2 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
 plot(DIAGVAL,mres2,main="",ylim=range(c(mres2+sres2,mres2-sres2)),type="l",lwd=4,ylab="",xlab='',pch=26,cex.axis=1.5)
 errbar(DIAGVAL,mres2,mres2+sres2,mres2-sres2,add=T,pch=1,cap=0.01)
 grid()
 abline(v=ncol(K)-1,lty = 2,lwd=2)
+
+# get results for noise level 3: mean value + standard error
+MSE <- lapply(TEST[[noise[3]]],function(u){u[[1]]})
+mres3 <- apply(as.data.frame(MSE),1,mean)
+sres3 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
 plot(DIAGVAL,mres3,main="",ylim=range(c(mres3+sres3,mres3-sres3)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
 errbar(DIAGVAL,mres3,mres3+sres3,mres3-sres3,add=T,pch=1,cap=0.01)
 grid()
@@ -179,35 +187,39 @@ abline(v=ncol(K)-1,lty = 2,lwd=2)
 
 mtext("Diagonal",side=1,outer=TRUE,cex=1.5)
 mtext("Test MSE",side=2,outer=TRUE,cex=1.5)
-par(old.par)
 
+```
 
+### Plot results - Mean Angle between pairs of columns as a function of convexity
 
-
-MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
-mres1 <- apply(as.data.frame(MSE),1,mean)
-sres1 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
-MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
-mres2 <- apply(as.data.frame(MSE),1,mean)
-sres2 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
-MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
-mres3 <- apply(as.data.frame(MSE),1,mean)
-sres3 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
-
-
-old.par <- par(no.readonly = TRUE)
+```{r}
+#graphical parameters
 par(oma=c(2,2,0,0))
 par(mar=c(3,3,1,0.5))
 par(mfrow=c(1,3))
+
+# get results for noise level 1: mean value + standard error
+MSE <- lapply(TEST[[noise[1]]],function(u){u[[2]]})
+mres1 <- apply(as.data.frame(MSE),1,mean)
+sres1 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
 plot(DIAGVAL,mres1,main="",ylim=range(c(mres1+sres1,mres1-sres1)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
 errbar(DIAGVAL,mres1,mres1+sres1,mres1-sres1,add=T,pch=1,cap=0.01)
 grid()
 abline(v=ncol(K)-1,lty = 2,lwd=2)
 
+# get results for noise level 2: mean value + standard error
+MSE <- lapply(TEST[[noise[2]]],function(u){u[[2]]})
+mres2 <- apply(as.data.frame(MSE),1,mean)
+sres2 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
 plot(DIAGVAL,mres2,main="",ylim=range(c(mres2+sres2,mres2-sres2)),type="l",lwd=4,ylab="",xlab='',pch=26,cex.axis=1.5)
 errbar(DIAGVAL,mres2,mres2+sres2,mres2-sres2,add=T,pch=1,cap=0.01)
 grid()
 abline(v=ncol(K)-1,lty = 2,lwd=2)
+
+# get results for noise level 3: mean value + standard error
+MSE <- lapply(TEST[[noise[3]]],function(u){u[[2]]})
+mres3 <- apply(as.data.frame(MSE),1,mean)
+sres3 <- apply(as.data.frame(MSE),1,sd)*1.96/sqrt(nrepeats)
 plot(DIAGVAL,mres3,main="",ylim=range(c(mres3+sres3,mres3-sres3)),type="l",lwd=4,ylab="",xlab='',pch=16,cex.axis=1.5)
 errbar(DIAGVAL,mres3,mres3+sres3,mres3-sres3,add=T,pch=1,cap=0.01)
 grid()
@@ -215,8 +227,6 @@ abline(v=ncol(K)-1,lty = 2,lwd=2)
 
 mtext("Diagonal",side=1,outer=TRUE,cex=1.5)
 mtext("mean(|angle-90|)",side=2,outer=TRUE,cex=1.5)
-par(old.par)
-
   
 ```
 
