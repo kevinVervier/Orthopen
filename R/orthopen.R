@@ -32,10 +32,10 @@
 #' W <- qr.Q(qr(matrix(rnorm(NVAR*T),nrow=NVAR,ncol=T)))
 #' Y <- X %*% W + matrix(rnorm(NTRAIN*T),nrow=NTRAIN)
 #' set.seed(42)
-#' res <- main(X,Y,lambda = 0.1,K = K,disjoint = FALSE)
+#' res <- orthopen(X,Y,lambda = 0.1,K = K,disjoint = FALSE)
 
 
-main <- function(X,Y,lambda=1, step_size=0.1, verbose = 0, stop_no_improve=100, max_iter=1e6, K=NULL,disjoint=TRUE,logistic = FALSE,enet= FALSE){
+orthopen <- function(X,Y,lambda=1, step_size=0.1, verbose = 0, stop_no_improve=100, max_iter=1e6, K=NULL,disjoint=TRUE,logistic = FALSE,enet= FALSE){
   
   #get problem dimensions
   m = nrow(X)
